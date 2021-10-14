@@ -4,11 +4,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 
-import java.util.List;
-
-import tej.billing.lib.Billing;
-import tej.billing.lib.interfaces.OnQueryItems;
-
 public class MainActivity extends AppCompatActivity {
 
     @Override
