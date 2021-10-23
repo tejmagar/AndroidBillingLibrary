@@ -206,8 +206,8 @@ public class Billing {
      */
 
     public static void queryUserOwnedItems(OnQueryItems onQueryItems, String skuType) {
-        billingClient.queryPurchaseHistoryAsync(skuType, (result, records) ->
-                handler.post(() -> onQueryItems.onSuccess(result, records)));
+        billingClient.queryPurchasesAsync(skuType, (result, purchases) ->
+                handler.post(() -> onQueryItems.onSuccess(result, purchases)));
     }
 
     /***
