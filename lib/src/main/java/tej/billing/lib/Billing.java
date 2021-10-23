@@ -1,9 +1,13 @@
 package tej.billing.lib;
 
 import android.app.Activity;
+import android.app.Context;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.billingclient.api.AcknowledgePurchaseParams;
 import com.android.billingclient.api.BillingClient;
@@ -11,9 +15,11 @@ import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
 import com.android.billingclient.api.Purchase;
+import com.android.billingclient.api.PurchasesResponseListener;
 import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.SkuDetails;
 import com.android.billingclient.api.SkuDetailsParams;
+import com.android.billingclient.api.SkuDetailsResponseListener;
 
 import java.util.List;
 
@@ -27,9 +33,11 @@ public class Billing {
     private static BillingClient billingClient;
     private static PurchasesUpdatedListener purchasesUpdatedListener;
     private static OnPurchaseChangeListener purchaseChangeListener;
+    
+    private static final Handler handler = new Handler(Looper.getMainLooper());
 
     public static void init(Context context) {
-        setPurchasesUpdatedListener((Activity) context);
+        setPurchasesUpdatedListener(context);
         billingClient = buildBillingClient(context);
     }
 
@@ -44,41 +52,41 @@ public class Billing {
         purchaseChangeListener = onPurchaseChangeListener;
     }
 
-    private static void setPurchasesUpdatedListener(Activity activity) {
+    private static void setPurchasesUpdatedListener(Context context) {
         purchasesUpdatedListener = (billingResult, purchases) -> {
             if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
                     && purchases != null) {
                 for (Purchase purchase : purchases) {
-                    handlePurchase(activity, purchase);
+                    handlePurchase(context, purchase);
                 }
             } else if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
-                notifyPurchaseCancelled(activity);
+                notifyPurchaseCancelled(context);
             } else {
-                notifyPurchaseFailed(activity);
+                notifyPurchaseFailed(context);
             }
         };
     }
 
     // Sending callbacks to UI Thread
 
-    private static void notifyPurchaseSuccess(Activity activity) {
-        activity.runOnUiThread(() -> purchaseChangeListener.onSuccess());
+    private static void notifyPurchaseSuccess(Context context) {
+        handler.post(() -> purchaseChangeListener.onSuccess());
     }
 
-    private static void notifyPurchaseCancelled(Activity activity) {
-        activity.runOnUiThread(() -> purchaseChangeListener.onCanceled());
+    private static void notifyPurchaseCancelled(Context context) {
+        handler.post(() -> purchaseChangeListener.onCanceled());
     }
 
-    private static void notifyPurchaseFailed(Activity activity) {
-        activity.runOnUiThread(() -> purchaseChangeListener.onFailed());
+    private static void notifyPurchaseFailed(Context context) {
+        handler.post(() -> purchaseChangeListener.onFailed());
     }
 
     /***
      * Acknowledges purchase if it's not already acknowledged
-     * @param activity activity from where billing flow is launched
+     * @param context context from where billing flow is launched
      * @param purchase purchase
      */
-    public static void handlePurchase(Activity activity, Purchase purchase) {
+    public static void handlePurchase(Context context, Purchase purchase) {
         if (purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
             if (!purchase.isAcknowledged()) {
                 AcknowledgePurchaseParams acknowledgePurchaseParams =
@@ -89,9 +97,9 @@ public class Billing {
                 billingClient.acknowledgePurchase(acknowledgePurchaseParams,
                         billingResult -> {
                             if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-                                notifyPurchaseSuccess(activity);
+                                notifyPurchaseSuccess(context);
                             } else {
-                                notifyPurchaseFailed(activity);
+                                notifyPurchaseFailed(context);
                             }
                         });
             }
@@ -115,7 +123,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onAvailableItemsListener.onFailed();
+                handler.post(onAvailableItemsListener::onFailed);
             }
         });
     }
@@ -137,7 +145,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onAvailableItemsListener.onFailed();
+                handler.post(onAvailableItemsListener::onFailed);
             }
         });
     }
@@ -154,8 +162,8 @@ public class Billing {
                                                OnAvailableItemsListener onAvailableItemsListener) {
         SkuDetailsParams.Builder params = SkuDetailsParams.newBuilder();
         params.setSkusList(skuList).setType(skuType);
-        billingClient.querySkuDetailsAsync(params.build(),
-                onAvailableItemsListener::onSkuDetailsResponse);
+        billingClient.querySkuDetailsAsync(params.build(), (billingResult, list) ->
+                handler.post(() -> onAvailableItemsListener.onSkuDetailsResponse(billingResult, list)));
     }
 
 
@@ -172,7 +180,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onQueryItems.onFailed();
+                handler.post(onQueryItems::onFailed);
             }
         });
     }
@@ -190,7 +198,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onQueryItems.onFailed();
+                handler.post(onQueryItems::onFailed);
             }
         });
     }
@@ -202,13 +210,8 @@ public class Billing {
      */
 
     public static void queryUserOwnedItems(OnQueryItems onQueryItems, String skuType) {
-        billingClient.queryPurchaseHistoryAsync(skuType, (result, records) -> {
-            if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-                onQueryItems.onSuccess(result, records);
-            } else {
-                onQueryItems.onFailed();
-            }
-        });
+        billingClient.queryPurchaseHistoryAsync(skuType, (result, records) ->
+                handler.post(() -> onQueryItems.onSuccess(result, records)));
     }
 
     /***
@@ -224,7 +227,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onQueryPurchases.onFailed();
+                handler.post(onQueryPurchases::onFailed);
             }
         });
     }
@@ -242,7 +245,7 @@ public class Billing {
 
             @Override
             public void onBillingServiceDisconnected() {
-                onQueryPurchases.onFailed();
+                handler.post(onQueryPurchases::onFailed);
             }
         });
     }
@@ -253,28 +256,28 @@ public class Billing {
      * @param onQueryPurchases onQueryPurchases
      */
     private static void queryPurchasesItems(String skuType, OnQueryPurchases onQueryPurchases) {
-        billingClient.queryPurchasesAsync(skuType,
-                onQueryPurchases::onSuccess);
+        billingClient.queryPurchasesAsync(skuType, (billingResult, list) -> handler.post(() ->
+                onQueryPurchases.onSuccess(billingResult, list)));
     }
 
     /***
      * Purchase product
-     * @param activity activity
+     * @param context context
      * @param skuDetails skuDetails
      * @param onPurchaseChangeListener onPurchaseChangeListener
      */
-    public static void purchase(Activity activity, SkuDetails skuDetails,
+    public static void purchase(Context context, SkuDetails skuDetails,
                                 OnPurchaseChangeListener onPurchaseChangeListener) {
         setPurchasesChangeListener(onPurchaseChangeListener);
 
         BillingFlowParams billingFlowParams = BillingFlowParams.newBuilder()
                 .setSkuDetails(skuDetails)
                 .build();
-        int responseCode = billingClient.launchBillingFlow(activity, billingFlowParams)
+        int responseCode = billingClient.launchBillingFlow((Activity) context, billingFlowParams)
                 .getResponseCode();
 
         if (responseCode != BillingClient.BillingResponseCode.OK) {
-            onPurchaseChangeListener.onFailed();
+            handler.post(onPurchaseChangeListener::onFailed);
         }
     }
 }
