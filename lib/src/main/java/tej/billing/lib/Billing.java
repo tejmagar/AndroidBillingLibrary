@@ -167,7 +167,7 @@ public class Billing {
         billingClient.startConnection(new BillingClientStateListener() {
             @Override
             public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
-                queryUserOwnedItems(onQueryItems, BillingClient.SkuType.SUBS);
+                queryUserOwnedItems(onQueryItems, BillingClient.SkuType.INAPP);
             }
 
             @Override
