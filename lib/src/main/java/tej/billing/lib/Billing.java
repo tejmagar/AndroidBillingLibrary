@@ -17,6 +17,7 @@ import com.android.billingclient.api.PurchasesUpdatedListener;
 import com.android.billingclient.api.SkuDetails;
 import com.android.billingclient.api.SkuDetailsParams;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import tej.billing.lib.interfaces.OnAvailableItemsListener;
@@ -56,25 +57,25 @@ public class Billing {
                     handlePurchase(context, purchase);
                 }
             } else if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
-                notifyPurchaseCancelled(context);
+                notifyPurchaseCancelled();
             } else {
-                notifyPurchaseFailed(context);
+                notifyPurchaseFailed();
             }
         };
     }
 
     // Sending callbacks to UI Thread
 
-    private static void notifyPurchaseSuccess(Context context) {
-        handler.post(() -> purchaseChangeListener.onSuccess());
+    private static void notifyPurchaseSuccess(ArrayList<String> skus) {
+        handler.post(() -> purchaseChangeListener.onPurchaseSuccess(skus));
     }
 
-    private static void notifyPurchaseCancelled(Context context) {
-        handler.post(() -> purchaseChangeListener.onCanceled());
+    private static void notifyPurchaseCancelled() {
+        handler.post(() -> purchaseChangeListener.onPurchaseCanceled());
     }
 
-    private static void notifyPurchaseFailed(Context context) {
-        handler.post(() -> purchaseChangeListener.onFailed());
+    private static void notifyPurchaseFailed() {
+        handler.post(() -> purchaseChangeListener.onPurchaseFailed());
     }
 
     /***
@@ -93,9 +94,9 @@ public class Billing {
                 billingClient.acknowledgePurchase(acknowledgePurchaseParams,
                         billingResult -> {
                             if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
-                                notifyPurchaseSuccess(context);
+                                notifyPurchaseSuccess(purchase.getSkus());
                             } else {
-                                notifyPurchaseFailed(context);
+                                notifyPurchaseFailed();
                             }
                         });
             }
@@ -273,7 +274,7 @@ public class Billing {
                 .getResponseCode();
 
         if (responseCode != BillingClient.BillingResponseCode.OK) {
-            handler.post(onPurchaseChangeListener::onFailed);
+            handler.post(onPurchaseChangeListener::onPurchaseFailed);
         }
     }
 }
