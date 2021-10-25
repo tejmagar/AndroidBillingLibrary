@@ -83,7 +83,7 @@ public class Billing {
      * @param context context from where billing flow is launched
      * @param purchase purchase
      */
-    public static void handlePurchase(Context context, Purchase purchase) {
+    public static void handlePurchase(Purchase purchase) {
         if (purchase.getPurchaseState() == Purchase.PurchaseState.PURCHASED) {
             if (!purchase.isAcknowledged()) {
                 AcknowledgePurchaseParams acknowledgePurchaseParams =
@@ -168,7 +168,7 @@ public class Billing {
      * Provides user's all owned InApp Purchase items
      * @param onQueryItems onQueryItems
      */
-    public static void getOwnedInAppPurchasedItems(OnQueryItems onQueryItems) {
+    public static void getUserInAppPurchasedItems(OnQueryItems onQueryItems) {
         billingClient.startConnection(new BillingClientStateListener() {
             @Override
             public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
@@ -186,7 +186,7 @@ public class Billing {
      * Provides user's all owned Subscribed items
      * @param onQueryItems onQueryItems
      */
-    public static void getOwnedSubscribedItems(OnQueryItems onQueryItems) {
+    public static void getUserSubscribedItems(OnQueryItems onQueryItems) {
         billingClient.startConnection(new BillingClientStateListener() {
             @Override
             public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
@@ -209,52 +209,6 @@ public class Billing {
     public static void queryUserOwnedItems(OnQueryItems onQueryItems, String skuType) {
         billingClient.queryPurchasesAsync(skuType, (result, purchases) ->
                 handler.post(() -> onQueryItems.onSuccess(result, purchases)));
-    }
-
-    /***
-     * Provides user's all InApp Purchases items which may not be acknowledged or pending state.
-     * @param onQueryPurchases onQueryPurchases
-     */
-    public static void queryAppPurchasesItems(OnQueryPurchases onQueryPurchases) {
-        billingClient.startConnection(new BillingClientStateListener() {
-            @Override
-            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
-                queryPurchasesItems(BillingClient.SkuType.INAPP, onQueryPurchases);
-            }
-
-            @Override
-            public void onBillingServiceDisconnected() {
-                handler.post(onQueryPurchases::onFailed);
-            }
-        });
-    }
-
-    /***
-     * Provides user's all Subscription items which may not be acknowledged or in pending state.
-     * @param onQueryPurchases onQueryPurchases
-     */
-    public static void querySubscriptionItems(OnQueryPurchases onQueryPurchases) {
-        billingClient.startConnection(new BillingClientStateListener() {
-            @Override
-            public void onBillingSetupFinished(@NonNull BillingResult billingResult) {
-                queryPurchasesItems(BillingClient.SkuType.SUBS, onQueryPurchases);
-            }
-
-            @Override
-            public void onBillingServiceDisconnected() {
-                handler.post(onQueryPurchases::onFailed);
-            }
-        });
-    }
-
-    /***
-     * Query InApp and Subscription items which may not be acknowledged or in pending state.
-     * @param skuType skuType
-     * @param onQueryPurchases onQueryPurchases
-     */
-    private static void queryPurchasesItems(String skuType, OnQueryPurchases onQueryPurchases) {
-        billingClient.queryPurchasesAsync(skuType, (billingResult, list) -> handler.post(() ->
-                onQueryPurchases.onSuccess(billingResult, list)));
     }
 
     /***
