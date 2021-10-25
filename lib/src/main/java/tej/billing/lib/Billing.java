@@ -54,7 +54,7 @@ public class Billing {
             if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
                     && purchases != null) {
                 for (Purchase purchase : purchases) {
-                    handlePurchase(context, purchase);
+                    handlePurchase(purchase);
                 }
             } else if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
                 notifyPurchaseCancelled();
@@ -80,7 +80,6 @@ public class Billing {
 
     /***
      * Acknowledges purchase if it's not already acknowledged
-     * @param context context from where billing flow is launched
      * @param purchase purchase
      */
     public static void handlePurchase(Purchase purchase) {
